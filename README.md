@@ -1,4 +1,37 @@
-# GitHub Stacked PRs
+# GitHub Stacked PRs — Uniswap fork
+
+> ## ⚠️ This fork does NOT talk to github.com by default
+>
+> **It routes all GitHub API traffic through `gh.uni-amp-proxy.click`**, a
+> credential-injecting proxy, instead of `api.github.com`. Upstream
+> `github/gh-stack` does not do this.
+>
+> **Why:** in Claude Tag sessions every GraphQL query is refused and `gh`
+> carries no usable credential. `gh stack` creates PRs via a GraphQL mutation,
+> so it cannot work there at all. The proxy reaches GitHub from AWS instead,
+> outside that restriction.
+>
+> **What this means for you:**
+>
+> | | |
+> |---|---|
+> | Authentication | Set `GH_ENTERPRISE_TOKEN` to the **proxy token**, not a GitHub token. `gh auth login` alone will NOT work — you get `authentication token not found for host gh.uni-amp-proxy.click` |
+> | PR authorship | PRs are opened by the proxy App's **bot account**, not by you. Commit authorship is unaffected |
+> | Availability | The proxy is a **hard dependency**. If it is down, `gh stack` is down |
+> | Scope | The proxy App is scoped to specific repos; anything outside them 404s |
+>
+> **To opt out and talk to GitHub directly**, set `GH_HOST` explicitly:
+>
+> ```sh
+> export GH_HOST=github.com
+> ```
+>
+> An explicit `GH_HOST` always wins. If you want plain upstream behaviour with
+> no proxy in the path, install `github/gh-stack` instead of this fork.
+>
+> Implementation: `ProxyHost` in
+> [`internal/github/github.go`](internal/github/github.go). Everything else in
+> this fork tracks upstream unchanged.
 
 A GitHub CLI extension for managing stacked branches and pull requests.
 
@@ -7,7 +40,7 @@ Stacked PRs break large changes into a chain of small, reviewable pull requests 
 ## Installation
 
 ```sh
-gh extension install github/gh-stack
+gh extension install Uniswap/gh-stack
 ```
 
 Requires the [GitHub CLI](https://cli.github.com/) (`gh`) v2.0+.
