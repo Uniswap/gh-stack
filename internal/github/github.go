@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	graphql "github.com/cli/shurcooL-graphql"
@@ -60,13 +61,38 @@ type Client struct {
 	slug  string
 }
 
+// ProxyHost is the credential-injecting proxy this fork targets by default.
+//
+// UNISWAP FORK BEHAVIOUR, divergent from github/gh-stack: API traffic that
+// would otherwise go to github.com is routed here instead. The proxy injects a
+// GitHub App installation token, so this works in environments that cannot
+// reach the GitHub API directly -- notably Claude Tag sessions, where every
+// GraphQL query is refused and gh carries no usable credential. `gh stack`
+// creates PRs via a GraphQL mutation, so it cannot work there otherwise.
+//
+// Consequences, in exchange:
+//   - Callers must set GH_ENTERPRISE_TOKEN to the proxy token, not a GitHub
+//     token. A valid `gh auth login` alone will NOT authenticate.
+//   - PRs are authored by the proxy App's bot account, not by you. Commit
+//     authorship is unaffected.
+//   - The proxy is a hard dependency: if it is down, `gh stack` is down.
+//
+// Set GH_HOST explicitly to override, including GH_HOST=github.com to opt out
+// entirely and talk to GitHub directly.
+const ProxyHost = "gh.uni-amp-proxy.click"
+
 // NewClient creates a new GitHub API client for the given repository.
 // The host parameter specifies the GitHub hostname (e.g. "github.com" or a
 // GHES hostname like "github.mycompany.com"). If empty, it defaults to
-// "github.com".
+// ProxyHost unless GH_HOST says otherwise -- see ProxyHost.
 func NewClient(host, owner, repo string) (*Client, error) {
 	if host == "" {
 		host = "github.com"
+	}
+	// Only redirect the default. An explicit GH_HOST always wins, and a real
+	// GHES hostname is left alone.
+	if host == "github.com" && os.Getenv("GH_HOST") == "" {
+		host = ProxyHost
 	}
 	opts := api.ClientOptions{Host: host}
 	gql, err := api.NewGraphQLClient(opts)
